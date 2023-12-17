@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Penguin Game</title>
+    <style>
+	.hidden-input {
+	 visibility: hidden;
+	}
+        #gameCanvas {
+            border: 1px solid #000;
+            display: block;
+            margin: 20px auto;
+        }
+
+        #gameInfo {
+            text-align: center;
+            font-size: 30px;
+	    color: #0000ff;
+        }
+
+        #gameInfo2 {
+            text-align: center;
+            font-size: 20px;
+        }
+
+        #gameInfo3 {
+            text-align: center;
+            font-size: 15px;
+            color: #ff00ff;
+        }
+
+        #score {
+            font-size: 20px;
+            text-align: center;
+        }
+
+        #highScore {
+            font-size: 16px;
+            text-align: center;
+        }
+
+        #nameInput {
+            display: block;
+            margin: 10px auto;
+        }
+    </style>
+</head>
+<body>
+<div id="gameInfo"> </div>
+<div id="gameInfo"> </div>
+<div id="gameInfo">Penguin Game</div>
+<div id="gameInfo"> </div>
+<div id="score">Score: 0</div>
+<div id="highScore">High Score: 0 (by: NoName)</div>
+<canvas id="gameCanvas" width="600" height="200"></canvas>
+<input type="text" class="hidden-input" id="nameInput" placeholder="Enter your name">
+<div id="gameInfo2">2023학년도 2학기 소프트웨어공학 기말과제</div>
+<div id="gameInfo">* AI 챗봇을 활용해 프로그램 만들기 *</div>
+<div id="gameInfo2">한국외국어대학교 교육대학원 컴퓨터교육전공 김자영</div>
+
+<audio id="jumpSound" src="img/jump.mp3"></audio>
+<audio id="gameOverSound" src="img/game_over.mp3"></audio>
+
+<script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const dino = {
+        x: 50,
+        y: 150,
+        width: 50,
+        height: 50,
+        jumping: false,
+        jumpHeight: 150,
+        jumpSpeed: 15,
+        image: new Image()
+    };
+
+    const obstacles = [];
+    const obstacleImages = [
+        { src: 'img/obstacle1.png', collisionDistance: 20 },
+        { src: 'img/obstacle2.png', collisionDistance: 30 },
+        { src: 'img/obstacle3.png', collisionDistance: 25 }
+    ];
+
+    let score = 0;
+    let highScore = localStorage.getItem("highScore") || 0;
+    let highScoreName = localStorage.getItem("highScoreName") || "NoName";
+
+    dino.image.src = 'img/Penguin.png';
+
+    const obstacleImagesArray = [];
+    obstacleImages.forEach((obstacleData) => {
+        const image = new Image();
+        image.src = obstacleData.src;
+        obstacleImagesArray.push({ image, collisionDistance: obstacleData.collisionDistance });
+    });
+
+    const jumpSound = document.getElementById("jumpSound");
+    const gameOverSound = document.getElementById("gameOverSound");
+
+    function playJumpSound() {
+        jumpSound.play();
+    }
+
+    function playGameOverSound() {
+        gameOverSound.play();
+    }
+
+    function drawDino() {
+        ctx.drawImage(dino.image, dino.x, dino.y, dino.width, dino.height);
+    }
+
+    function drawObstacles() {
+        obstacles.forEach((obstacle) => {
+            ctx.drawImage(obstacle.image.image, obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+        });
+    }
+
+    function moveObstacles() {
+        obstacles.forEach((obstacle) => {
+            obstacle.x -= obstacle.speed;
+
+            if (obstacle.x + obstacle.width < 0) {
+                resetObstacle(obstacle);
+                score++;  // 장애물이 화면을 벗어나면 점수 증가
+                updateScore(); // 점수 업데이트
+            }
+        });
+
+        // 새로운 장애물 추가
+        const lastObstacle = obstacles[obstacles.length - 1];
+        if (canvas.width - lastObstacle.x >= lastObstacle.distance) {
+            const obstacle = {
+                x: canvas.width,
+                y: 150,
+                width: 50,
+                height: 50,
+                speed: 5,
+                distance: 200 + Math.random() * 100,  // 최소 200, 최대 300 간격
+                image: obstacleImagesArray[Math.floor(Math.random() * obstacleImagesArray.length)]
+            };
+            obstacles.push(obstacle);
+        }
+    }
+
+    function checkCollision() {
+        const dinoLeft = dino.x + 10;
+        const dinoRight = dino.x + dino.width - 10;
+        const dinoTop = dino.y + 10;
+        const dinoBottom = dino.y + dino.height - 10;
+
+        obstacles.forEach((obstacle) => {
+            const obstacleLeft = obstacle.x + obstacle.image.collisionDistance;
+            const obstacleRight = obstacle.x + obstacle.width - obstacle.image.collisionDistance;
+            const obstacleTop = obstacle.y + obstacle.image.collisionDistance;
+            const obstacleBottom = obstacle.y + obstacle.height - obstacle.image.collisionDistance;
+
+            if (
+                dinoLeft < obstacleRight &&
+                dinoRight > obstacleLeft &&
+                dinoTop < obstacleBottom &&
+                dinoBottom > obstacleTop
+            ) {
+                playGameOverSound();  // 충돌 시 게임 오버 소리 재생
+                alert("게임 오버! 점수: " + score);
+                checkHighScore(); // 최고 점수 업데이트 체크
+                resetGame();
+            }
+        });
+    }
+
+    function resetGame() {
+        obstacles.forEach((obstacle, index) => {
+            resetObstacle(obstacle, index);
+        });
+        score = 0;
+        updateScore(); // 초기화 후 점수 업데이트
+    }
+
+    function resetObstacle(obstacle, index) {
+        const minDistance = 200;
+        const maxDistance = 300;
+        const distance = minDistance + Math.random() * (maxDistance - minDistance);
+
+        obstacle.x = canvas.width + index * distance;
+        obstacle.y = 150;
+        obstacle.distance = distance;
+        obstacle.width = 50;
+        obstacle.height = 50;
+        obstacle.image = obstacleImagesArray[Math.floor(Math.random() * obstacleImagesArray.length)];
+    }
+
+    function jump() {
+        if (!dino.jumping) {
+            dino.jumping = true;
+            playJumpSound();  // 점프 시 점프 소리 재생
+
+            const jumpInterval = setInterval(() => {
+                dino.y -= dino.jumpSpeed;
+
+                if (dino.y <= canvas.height - dino.jumpHeight) {
+                    clearInterval(jumpInterval);
+
+                    const fallInterval = setInterval(() => {
+                        dino.y += dino.jumpSpeed;
+
+                        if (dino.y >= 150) {
+                            dino.y = 150;
+                            dino.jumping = false;
+                            clearInterval(fallInterval);
+                        }
+                    }, 20);
+                }
+            }, 20);
+        }
+    }
+
+    function updateScore() {
+        const scoreElement = document.getElementById("score");
+        scoreElement.innerText = "Score: " + score;
+    }
+
+    function updateHighScore() {
+        const highScoreElement = document.getElementById("highScore");
+        highScoreElement.innerText = "High Score: " + highScore + " (by: " + highScoreName + ")";
+    }
+
+    function checkHighScore() {
+        if (score > highScore) {
+            highScore = score;
+            highScoreName = prompt("축하합니다! 새로운 최고 점수를 기록했습니다. 닉네임을 입력하세요:", "NoName");
+            localStorage.setItem("highScore", highScore);
+            localStorage.setItem("highScoreName", highScoreName);
+            updateHighScore();
+        }
+    }
+
+    canvas.addEventListener("click", jump);
+
+    function gameLoop() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        drawObstacles();
+        moveObstacles();
+
+        drawDino();
+
+        checkCollision();
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    // 초기 장애물 생성
+    for (let i = 0; i < 3; i++) {
+        const obstacle = {
+            x: canvas.width + i * 300,
+            y: 150,
+            width: 50,
+            height: 50,
+            speed: 5,
+            distance: 200 + Math.random() * 100,
+            image: obstacleImagesArray[Math.floor(Math.random() * obstacleImagesArray.length)]
+        };
+        obstacles.push(obstacle);
+    }
+
+    updateHighScore(); // 초기 로드 시 최고 점수 업데이트
+
+    gameLoop();
+</script>
+
+</body>
+</html>
